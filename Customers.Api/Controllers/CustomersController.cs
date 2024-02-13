@@ -22,7 +22,7 @@ public class CustomersController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> CreateCustomerAsync([FromBody] CustomerRequest request)
+    public async Task<IActionResult> CreateCustomerAsync([FromBody] CustomerRequest request, [FromQuery] bool useDapper)
     {
         var customer = new Customer
         {
@@ -49,7 +49,7 @@ public class CustomersController : ControllerBase
                 Country = request.ShippingAddress.Country,
             },
         };
-        var id = await _customersService.CreateCustomerAsync(customer);
+        var id = await _customersService.CreateCustomerAsync(customer, useDapper);
         return Ok(new CustomerResponse(id));
     }
 }

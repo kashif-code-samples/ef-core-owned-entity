@@ -360,6 +360,50 @@ Task<Customer?> GetCustomerAsync(int id, bool useDapper = false, CancellationTok
 Task<int> CreateCustomerAsync(Customer customer, bool useDapper = false, CancellationToken cancellationToken = default);
 ```
 
+### Create Customer
+Creating a customer with dapper will be a bit involved, we would need to write the insert sql statement and flatten the object to pass all parameters. I have manully flattened the object and created a param object but `AutoMapper` will be very useful in this situation.
+```csharp
+if (useDapper)
+{
+    var sql = @"
+        INSERT INTO Customer
+            (FirstName, LastName,
+            BillingAddressLine1, BillingAddressLine2, BillingAddressLine3, BillingAddressLine4, BillingAddressCity, BillingAddressPostCode, BillingAddressCountry,
+            ShippingAddressLine1, ShippingAddressLine2, ShippingAddressLine3, ShippingAddressLine4, ShippingAddressCity, ShippingAddressPostCode, ShippingAddressCountry)
+        VALUES
+            (@FirstName, @LastName,
+            @BillingAddressLine1, @BillingAddressLine2, @BillingAddressLine3, @BillingAddressLine4, @BillingAddressCity, @BillingAddressPostCode, @BillingAddressCountry,
+            @ShippingAddressLine1, @ShippingAddressLine2, @ShippingAddressLine3, @ShippingAddressLine4, @ShippingAddressCity, @ShippingAddressPostCode, @ShippingAddressCountry);
+        SELECT last_insert_rowid();";
+    var param = new {
+        customer.FirstName,
+        customer.LastName,
+        BillingAddressLine1 = customer.BillingAddress.Line1,
+        BillingAddressLine2 = customer.BillingAddress.Line2,
+        BillingAddressLine3 = customer.BillingAddress.Line3,
+        BillingAddressLine4 = customer.BillingAddress.Line4,
+        BillingAddressCity = customer.BillingAddress.City,
+        BillingAddressPostCode = customer.BillingAddress.PostCode,
+        BillingAddressCountry = customer.BillingAddress.Country,
+        ShippingAddressLine1 = customer.ShippingAddress.Line1,
+        ShippingAddressLine2 = customer.ShippingAddress.Line2,
+        ShippingAddressLine3 = customer.ShippingAddress.Line3,
+        ShippingAddressLine4 = customer.ShippingAddress.Line4,
+        ShippingAddressCity = customer.ShippingAddress.City,
+        ShippingAddressPostCode = customer.ShippingAddress.PostCode,
+        ShippingAddressCountry = customer.ShippingAddress.Country,
+    };
+
+    using var connection = new SqliteConnection(_customersConnectionString);
+    var id = await connection.ExecuteScalarAsync<int>(
+        sql,
+        param
+    );
+    return id;
+}
+```
+
+### Get Customer
 Update `GetCustomerAsync` method to return `Customer` using `Dapper`. We will use `splitOn` to map the result to multiple objects.
 ```csharp
 if (useDapper)
@@ -397,4 +441,5 @@ In no particular order
 * [SQLite EF Core Database Provider](https://learn.microsoft.com/en-us/ef/core/providers/sqlite/?tabs=dotnet-core-cli)
 * [Fluent Migrator](https://fluentmigrator.github.io/)
 * [Dapper](https://github.com/DapperLib/Dapper)
+* [AutoMapper](https://docs.automapper.org/en/stable/)
 and many more.

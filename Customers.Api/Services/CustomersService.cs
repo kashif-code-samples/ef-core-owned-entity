@@ -48,7 +48,41 @@ public class CustomersService : ICustomersService
     {
         if (useDapper)
         {
+            var sql = @"
+                INSERT INTO Customer
+                    (FirstName, LastName,
+                    BillingAddressLine1, BillingAddressLine2, BillingAddressLine3, BillingAddressLine4, BillingAddressCity, BillingAddressPostCode, BillingAddressCountry,
+                    ShippingAddressLine1, ShippingAddressLine2, ShippingAddressLine3, ShippingAddressLine4, ShippingAddressCity, ShippingAddressPostCode, ShippingAddressCountry)
+                VALUES
+                    (@FirstName, @LastName,
+                    @BillingAddressLine1, @BillingAddressLine2, @BillingAddressLine3, @BillingAddressLine4, @BillingAddressCity, @BillingAddressPostCode, @BillingAddressCountry,
+                    @ShippingAddressLine1, @ShippingAddressLine2, @ShippingAddressLine3, @ShippingAddressLine4, @ShippingAddressCity, @ShippingAddressPostCode, @ShippingAddressCountry);
+                SELECT last_insert_rowid();";
+            var param = new {
+                customer.FirstName,
+                customer.LastName,
+                BillingAddressLine1 = customer.BillingAddress.Line1,
+                BillingAddressLine2 = customer.BillingAddress.Line2,
+                BillingAddressLine3 = customer.BillingAddress.Line3,
+                BillingAddressLine4 = customer.BillingAddress.Line4,
+                BillingAddressCity = customer.BillingAddress.City,
+                BillingAddressPostCode = customer.BillingAddress.PostCode,
+                BillingAddressCountry = customer.BillingAddress.Country,
+                ShippingAddressLine1 = customer.ShippingAddress.Line1,
+                ShippingAddressLine2 = customer.ShippingAddress.Line2,
+                ShippingAddressLine3 = customer.ShippingAddress.Line3,
+                ShippingAddressLine4 = customer.ShippingAddress.Line4,
+                ShippingAddressCity = customer.ShippingAddress.City,
+                ShippingAddressPostCode = customer.ShippingAddress.PostCode,
+                ShippingAddressCountry = customer.ShippingAddress.Country,
+            };
 
+            using var connection = new SqliteConnection(_customersConnectionString);
+            var id = await connection.ExecuteScalarAsync<int>(
+                sql,
+                param
+            );
+            return id;
         }
 
         await _customersDbContext.Customers.AddAsync(customer, cancellationToken);
