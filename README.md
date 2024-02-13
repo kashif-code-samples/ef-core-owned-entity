@@ -404,20 +404,40 @@ if (useDapper)
 ```
 
 ### Get Customer
-Update `GetCustomerAsync` method to return `Customer` using `Dapper`. We will use `splitOn` to map the result to multiple objects.
+Update `GetCustomerAsync` method to return `Customer` using `Dapper`. We will use `splitOn` to map the result to multiple objects. We would also need to write the full column list and alias all the columns same as the nested object property names. Had we used separate table for `Address` we could have just used `*` instead.
 ```csharp
 if (useDapper)
 {
+    var query = @"
+        SELECT
+            FirstName,
+            LastName,
+            BillingAddressLine1 AS Line1,
+            BillingAddressLine2 AS Line2,
+            BillingAddressLine3 AS Line3,
+            BillingAddressLine4 AS Line4,
+            BillingAddressCity AS City,
+            BillingAddressPostCode AS PostCode,
+            BillingAddressCountry AS Country,
+            ShippingAddressLine1 AS Line1,
+            ShippingAddressLine2 AS Line2,
+            ShippingAddressLine3 AS Line3,
+            ShippingAddressLine4 AS Line4,
+            ShippingAddressCity AS City,
+            ShippingAddressPostCode AS PostCode,
+            ShippingAddressCountry AS Country
+        FROM Customer
+        WHERE Id = @id";
     using var connection = new SqliteConnection(_customersConnectionString);
     var customer = await connection.QueryAsync<Customer?, Address, Address, Customer?>(
-        "SELECT * FROM Customer WHERE Id = @id",
+        query,
         (customer, billingAddress, shippingAddress) => {
             customer.BillingAddress = billingAddress;
             customer.ShippingAddress = shippingAddress;
             return customer;
         },
         new { id },
-        splitOn: "BillingAddressLine1, ShippingAddressLine1");
+        splitOn: "Line1, Line1");
 
     return customer.FirstOrDefault();
 }
