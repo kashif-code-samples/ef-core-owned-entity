@@ -349,6 +349,43 @@ I have added the request and response object in the same file as controller. Rea
 ## Test
 Now code is done, let execute `dotnet run` from terminal and open Swagger UI in browser and test the operations.
 
+## Dapper
+Let's explore how to do the same with `Dapper` that is a popular micro-ORM. Let's start by adding package reference.
+```shell
+dotnet add package Dapper --version 2.1.28
+```
+Update our service to work with `Dapper`
+```csharp
+Task<Customer?> GetCustomerAsync(int id, bool useDapper = false, CancellationToken cancellationToken = default);
+Task<int> CreateCustomerAsync(Customer customer, bool useDapper = false, CancellationToken cancellationToken = default);
+```
+
+Update `GetCustomerAsync` method to return `Customer` using `Dapper`. We will use `splitOn` to map the result to multiple objects.
+```csharp
+if (useDapper)
+{
+    using var connection = new SqliteConnection(_customersConnectionString);
+    var customer = await connection.QueryAsync<Customer?, Address, Address, Customer?>(
+        "SELECT * FROM Customer WHERE Id = @id",
+        (customer, billingAddress, shippingAddress) => {
+            customer.BillingAddress = billingAddress;
+            customer.ShippingAddress = shippingAddress;
+            return customer;
+        },
+        new { id },
+        splitOn: "BillingAddressLine1, ShippingAddressLine1");
+
+    return customer.FirstOrDefault();
+}
+```
+We will add a query parameter to `Get` endpoint to optionally use `Dapper`
+```csharp
+    public async Task<IActionResult> GetCustomerAsync(int id, [FromQuery] bool useDapper)
+    {
+        var customer = await _customersService.GetCustomerAsync(id, useDapper);
+        ...
+```
+
 ## Source
 Source code for the demo application is host on GitHub in [ef-core-owned-entity](https://github.com/kashif-code-samples/ef-core-owned-entity) repository.
 
@@ -359,4 +396,5 @@ In no particular order
 * [SQLite](https://www.sqlite.org/index.html)
 * [SQLite EF Core Database Provider](https://learn.microsoft.com/en-us/ef/core/providers/sqlite/?tabs=dotnet-core-cli)
 * [Fluent Migrator](https://fluentmigrator.github.io/)
+* [Dapper](https://github.com/DapperLib/Dapper)
 and many more.

@@ -15,9 +15,9 @@ public class CustomersController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetCustomerAsync(int id)
+    public async Task<IActionResult> GetCustomerAsync(int id, [FromQuery] bool useDapper)
     {
-        var customer = await _customersService.GetCustomerAsync(id);
+        var customer = await _customersService.GetCustomerAsync(id, useDapper);
         return Ok(customer);
     }
 
