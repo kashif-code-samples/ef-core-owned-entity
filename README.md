@@ -155,7 +155,93 @@ using (var scope = app.Services.CreateScope())
 ```
 Running first time will create our table.
 
+## EF Core Setup
+### Models
+Let's start by adding `Address` under `Models` folder.
+```csharp
+public class Address
+{
+    public string Line1 { get; set; }
+    public string Line2 { get; set; }
+    public string Line3 { get; set; }
+    public string Line4 { get; set; }
+    public string City { get; set; }
+    public string PostCode { get; set; }
+    public string Country { get; set; }
+}
+```
+And our root object `Customer`
+```csharp
+public class Customer
+{
+    public long Id { get; set; }
+    public string FirstName { get; set; }
+    public string LastName { get; set; }
+    public Address BillingAddress { get; set; }
+    public Address ShippingAddress { get; set; }
+}
+```
 
+### Entity Type Configuration
+Next we will configure Address properties as Owned Entity by using `OwnsOne` method of `EntityTypeBuilder` in `CustomerEntityTypeConfiguration`. It will look like following
+```csharp
+public class CustomerEntityTypeConfiguration : IEntityTypeConfiguration<Customer>
+{
+    public void Configure(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<Customer> builder)
+    {
+        builder.ToTable("Customer");
+
+        builder.OwnsOne(p => p.BillingAddress, p =>
+        {
+            p.Property(pp => pp.Line1).HasColumnName("BillingAddressLine1");
+            p.Property(pp => pp.Line2).HasColumnName("BillingAddressLine2");
+            p.Property(pp => pp.Line3).HasColumnName("BillingAddressLine3");
+            p.Property(pp => pp.Line4).HasColumnName("BillingAddressLine4");
+            p.Property(pp => pp.City).HasColumnName("BillingAddressCity");
+            p.Property(pp => pp.PostCode).HasColumnName("BillingAddressPostCode");
+            p.Property(pp => pp.Country).HasColumnName("BillingAddressCountry");
+        });
+        builder.OwnsOne(p => p.ShippingAddress, p =>
+        {
+            p.Property(pp => pp.Line1).HasColumnName("ShippingAddressLine1");
+            p.Property(pp => pp.Line2).HasColumnName("ShippingAddressLine2");
+            p.Property(pp => pp.Line3).HasColumnName("ShippingAddressLine3");
+            p.Property(pp => pp.Line4).HasColumnName("ShippingAddressLine4");
+            p.Property(pp => pp.City).HasColumnName("ShippingAddressCity");
+            p.Property(pp => pp.PostCode).HasColumnName("ShippingAddressPostCode");
+            p.Property(pp => pp.Country).HasColumnName("ShippingAddressCountry");
+        });
+    }
+}
+```
+### DbContext
+Then we will add `ConsumersDbContext`
+```csharp
+public class CustomersDbContext : DbContext
+{
+    public DbSet<Customer> Customers { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        new CustomerEntityTypeConfiguration().Configure(modelBuilder.Entity<Customer>());
+    }
+
+    public CustomersDbContext(DbContextOptions<CustomersDbContext> options)
+        : base(options)
+    { }
+}
+```
+### Dependency Injection
+Finally lets add our db context to dependency injection in `Program.cs`.
+```csharp
+...
+builder.Services
+    .AddDbContext<CustomerContext>(options => 
+        options.UseSqlite(customerConnectionString));
+...
+```
+
+## Customers Controller
 
 ## References
 In no particular order
