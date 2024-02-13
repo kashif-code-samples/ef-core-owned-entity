@@ -87,16 +87,16 @@ public class _20240213_2026_Table_Customer_Create : Migration
             .WithColumn("FirstName").AsString(50)
             .WithColumn("LastName").AsString(50)
             .WithColumn("BillingAddressLine1").AsString(50)
-            .WithColumn("BillingAddressLine2").AsString(50)
-            .WithColumn("BillingAddressLine3").AsString(50)
-            .WithColumn("BillingAddressLine4").AsString(50)
+            .WithColumn("BillingAddressLine2").AsString(50).Nullable()
+            .WithColumn("BillingAddressLine3").AsString(50).Nullable()
+            .WithColumn("BillingAddressLine4").AsString(50).Nullable()
             .WithColumn("BillingAddressCity").AsString(50)
             .WithColumn("BillingAddressPostCode").AsString(50)
             .WithColumn("BillingAddressCountry").AsString(50)
             .WithColumn("ShippingAddressLine1").AsString(50)
-            .WithColumn("ShippingAddressLine2").AsString(50)
-            .WithColumn("ShippingAddressLine3").AsString(50)
-            .WithColumn("ShippingAddressLine4").AsString(50)
+            .WithColumn("ShippingAddressLine2").AsString(50).Nullable()
+            .WithColumn("ShippingAddressLine3").AsString(50).Nullable()
+            .WithColumn("ShippingAddressLine4").AsString(50).Nullable()
             .WithColumn("ShippingAddressCity").AsString(50)
             .WithColumn("ShippingAddressPostCode").AsString(50)
             .WithColumn("ShippingAddressCountry").AsString(50);
@@ -162,9 +162,9 @@ Let's start by adding `Address` under `Models` folder.
 public class Address
 {
     public string Line1 { get; set; }
-    public string Line2 { get; set; }
-    public string Line3 { get; set; }
-    public string Line4 { get; set; }
+    public string? Line2 { get; set; }
+    public string? Line3 { get; set; }
+    public string? Line4 { get; set; }
     public string City { get; set; }
     public string PostCode { get; set; }
     public string Country { get; set; }
@@ -174,7 +174,7 @@ And our root object `Customer`
 ```csharp
 public class Customer
 {
-    public long Id { get; set; }
+    public int Id { get; set; }
     public string FirstName { get; set; }
     public string LastName { get; set; }
     public Address BillingAddress { get; set; }
@@ -236,12 +236,121 @@ Finally lets add our db context to dependency injection in `Program.cs`.
 ```csharp
 ...
 builder.Services
-    .AddDbContext<CustomerContext>(options => 
-        options.UseSqlite(customerConnectionString));
+    .AddDbContext<CustomersDbContext>(options =>
+        options.UseSqlite(customersConnectionString));
 ...
 ```
 
 ## Customers Controller
+Before we add a controller to expose endpoints for `CR` operations. Let's add an interface and service to `Create` and `Get` customer model from database.
+```csharp
+public interface ICustomersService
+{
+    Task<Customer?> GetCustomerAsync(int id, CancellationToken cancellationToken = default);
+    Task<int> CreateCustomerAsync(Customer customer, CancellationToken cancellationToken = default);
+}
+
+public class CustomersService : ICustomersService
+{
+    private readonly CustomersDbContext _customersDbContext;
+
+    public CustomersService(CustomersDbContext customersDbContext)
+    {
+        _customersDbContext = customersDbContext;
+    }
+
+    public async Task<Customer?> GetCustomerAsync(int id, CancellationToken cancellationToken = default)
+    {
+        return await _customersDbContext.Customers
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
+    public async Task<int> CreateCustomerAsync(Customer customer, CancellationToken cancellationToken = default)
+    {
+        await _customersDbContext.Customers.AddAsync(customer, cancellationToken);
+        await _customersDbContext.SaveChangesAsync(cancellationToken);
+        return customer.Id;
+    }
+}
+```
+
+Now let's add a new controller that would expose the endpoints to perform the `Create` and `Read` operations.
+```csharp
+[ApiController]
+[Route("api/[controller]")]
+public class CustomersController : ControllerBase
+{
+    private readonly ICustomersService _customersService;
+
+    public CustomersController(ICustomersService customersService)
+    {
+        _customersService = customersService;
+    }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetCustomerAsync(int id)
+    {
+        var customer = await _customersService.GetCustomerAsync(id);
+        return Ok(customer);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateCustomerAsync([FromBody] CustomerRequest request)
+    {
+        var customer = new Customer
+        {
+            FirstName = request.FirstName,
+            LastName = request.LastName,
+            BillingAddress = new Address
+            {
+                Line1 = request.BillingAddress.Line1,
+                Line2 = request.BillingAddress.Line2,
+                Line3 = request.BillingAddress.Line3,
+                Line4 = request.BillingAddress.Line4,
+                City = request.BillingAddress.City,
+                PostCode = request.BillingAddress.PostCode,
+                Country = request.BillingAddress.Country,
+            },
+            ShippingAddress = new Address
+            {
+                Line1 = request.ShippingAddress.Line1,
+                Line2 = request.ShippingAddress.Line2,
+                Line3 = request.ShippingAddress.Line3,
+                Line4 = request.ShippingAddress.Line4,
+                City = request.ShippingAddress.City,
+                PostCode = request.ShippingAddress.PostCode,
+                Country = request.ShippingAddress.Country,
+            },
+        };
+        var id = await _customersService.CreateCustomerAsync(customer);
+        return Ok(new CustomerResponse(id));
+    }
+}
+
+public record CustomerRequest(
+    string FirstName,
+    string LastName,
+    CustomerRequestAddress BillingAddress,
+    CustomerRequestAddress ShippingAddress);
+
+public record CustomerRequestAddress(
+    string Line1,
+    string? Line2,
+    string? Line3,
+    string? Line4,
+    string City,
+    string PostCode,
+    string Country);
+
+public record CustomerResponse(int id);
+```
+I have added the request and response object in the same file as controller. Reason for this is that this is only going to be used in this controller. However if you are going to use the same classes in other .NET projects, it would be a good idea to extrat out a contracts project and publish as nuget package that clients can use.
+
+## Test
+Now code is done, let execute `dotnet run` from terminal and open Swagger UI in browser and test the operations.
+
+## Source
+Source code for the demo application is host on GitHub in [ef-core-owned-entity](https://github.com/kashif-code-samples/ef-core-owned-entity) repository.
 
 ## References
 In no particular order
@@ -250,3 +359,4 @@ In no particular order
 * [SQLite](https://www.sqlite.org/index.html)
 * [SQLite EF Core Database Provider](https://learn.microsoft.com/en-us/ef/core/providers/sqlite/?tabs=dotnet-core-cli)
 * [Fluent Migrator](https://fluentmigrator.github.io/)
+and many more.

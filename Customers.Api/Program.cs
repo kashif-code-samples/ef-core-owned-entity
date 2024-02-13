@@ -1,5 +1,6 @@
 using Customers.Api;
 using FluentMigrator.Runner;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +17,10 @@ builder.Services.ConfigureRunner(rb => rb
         .AddSQLite()
         .WithGlobalConnectionString(customersConnectionString)
         .ScanIn(typeof(_20240213_2026_Table_Customer_Create).Assembly).For.Migrations());
+builder.Services
+    .AddDbContext<CustomersDbContext>(options =>
+        options.UseSqlite(customersConnectionString));
+builder.Services.AddTransient<ICustomersService, CustomersService>();
 
 var app = builder.Build();
 
